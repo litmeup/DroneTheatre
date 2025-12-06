@@ -1,0 +1,56 @@
+{% extends 'layout.html' %}
+
+{% block title %}Актёры{% endblock %}
+
+{% block content %}
+<h1>Актёры театра</h1>
+
+<div class="actors-grid">
+    {% for a in actors %}
+    <div class="actor-card card border-primary mb-3">
+        <div class="actor-photo">
+            {% if a.image_path %}
+            <img src="{{ a.image_path }}" alt="{{ a.full_name }}">
+            {% else %}
+            <img src="/static/no-photo.jpg" alt="no photo">
+            {% endif %}
+        </div>
+
+        <div class="actor-info">
+            <h2>{{ a.name }}</h2>
+            <p class="position">{{ a.role }}</p>
+
+            <p class="shows-count">
+                Участие в спектаклях: {{ a.shows_count or 0 }}
+            </p>
+
+            {% if a.shows_list %}
+            <p class="shows-list"><strong>Спектакли:</strong> {{ a.shows_list }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+.actors-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+.actor-card {
+    width: 20rem;
+    padding: 1rem;
+}
+.actor-photo img {
+    width: 180px;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 100px;
+    margin-bottom: 10px;
+}
+</style>
+
+{% endblock %}
+
+
