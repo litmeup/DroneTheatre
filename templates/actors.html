@@ -9,11 +9,22 @@
     {% for a in actors %}
     <div class="actor-card card border-primary mb-3">
         <div class="actor-photo">
-            {% if a.image_path %}
-            <img src="{{ a.image_path }}" alt="{{ a.full_name }}">
-            {% else %}
-            <img src="/static/no-photo.jpg" alt="no photo">
-            {% endif %}
+
+            <form action="{{ url_for('upload_actor_image') }}" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="actor_type" value="{{ a.type }}">
+                <input type="hidden" name="actor_db_id" value="{{ a.db_id }}">
+                <input type="file"
+                       name="image"
+                       accept="image/*"
+                       style="display:none"
+                       onchange="this.form.submit();">
+
+                {% if a.image_path %}
+                <img src="{{ a.image_path }}" alt="{{ a.full_name }}" onclick="this.previousElementSibling.click();">
+                {% else %}
+                <img src="/static/actors/ph.jpeg" alt="no photo" onclick="this.previousElementSibling.click();">
+                {% endif %}
+            </form>
         </div>
 
         <div class="actor-info">

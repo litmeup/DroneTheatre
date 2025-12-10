@@ -1,8 +1,19 @@
-from flask import Flask, render_template, render_template_string, redirect, request
+from flask import Flask, render_template, render_template_string, redirect, request, url_for, Response
+from werkzeug.utils import secure_filename
 
 import pymysql
+import os
 
 app = Flask(__name__)
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "static", "actors")
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+def allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # Настройки подключения
 DB_HOST = "yfedyakina.mysql.pythonanywhere-services.com"
@@ -157,6 +168,7 @@ def actors():
     query = """
         -- Люди-участники
         SELECT
+            e.id AS db_id,
             e.id AS id,
             e.full_name AS name,
             e.position AS role,
@@ -172,6 +184,7 @@ def actors():
 
         -- Дроны-участники (равные члены труппы)
         SELECT
+            d.id AS db_id,
             d.id + 10000 AS id,  -- смещаем ID, чтобы не пересекались с людьми
             d.name AS name,
             CONCAT('Drone model ', d.model) AS role,
@@ -191,6 +204,62 @@ def actors():
     connection.close()
 
     return render_template("actors.html", actors=actors)
+
+
+@app.route("/upload_actor_image", methods=["POST"])
+def upload_actor_image():
+    actor_type = request.form.get("actor_type")   # 'human' или 'drone'
+    actor_db_id = request.form.get("actor_db_id")
+
+    if not actor_type or not actor_db_id:
+        return redirect(url_for("actors"))
+
+    try:
+        actor_db_id = int(actor_db_id)
+    except ValueError:
+        return redirect(url_for("actors"))
+
+    file = request.files.get("image")
+    if not file or file.filename == "":
+        return redirect(url_for("actors"))
+
+    if not allowed_file(file.filename):
+        # можно добавить флеш-сообщение, но пока просто редирект
+        return redirect(url_for("actors"))
+
+    # нормализуем имя файла
+    filename = secure_filename(file.filename)
+    ext = os.path.splitext(filename)[1].lower()  # .jpg, .png и т.п.
+
+    # новое имя — по типу и id, чтобы не плодить мусор
+    new_filename = f"{actor_type}_{actor_db_id}{ext}"
+    save_path = os.path.join(app.config["UPLOAD_FOLDER"], new_filename)
+
+    # создаём папку, если вдруг нет
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+    file.save(save_path)
+
+    # путь, который будет использовать сайт
+    image_url = f"/static/actors/{new_filename}"
+
+    # обновляем БД
+    connection = pymysql.connect(
+        host=DB_HOST, user=DB_USER, password=DB_PASS,
+        database=DB_NAME, charset="utf8mb4"
+    )
+    cursor = connection.cursor()
+
+    if actor_type == "human":
+        update_query = "UPDATE employees SET image=%s WHERE id=%s"
+    else:
+        update_query = "UPDATE drones SET image=%s WHERE id=%s"
+
+    cursor.execute(update_query, (image_url, actor_db_id))
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for("actors"))
 
 # ----------------------------
 # Запуск приложения
